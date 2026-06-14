@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package transcoder;
+
+service TranscoderService {
+  rpc Convert(ConvertRequest) returns (ConvertResponse);
+}
+
+message ConvertRequest {
+  bytes content = 1;
+  string source_format = 2;
+  string target_format = 3;
+  uint64 expected_size = 4;
+}
+
+message ConvertResponse {
+  bytes content = 1;
+  uint64 output_size = 2;
+  bool integrity_ok = 3;
+  string error_message = 4;
+}
