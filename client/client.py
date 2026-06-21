@@ -1,26 +1,63 @@
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 import os
+import argparse
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'stubs'))
 
 import grpc
 import transcoder_pb2
 import transcoder_pb2_grpc
 
+CHUNK_SIZE = 1024
+
+
+def chunk_generator(content, source_format, target_format):
+    total_size = len(content)
+    for offset in range(0, total_size, CHUNK_SIZE):
+        chunk_data = content[offset:offset + CHUNK_SIZE]
+        yield transcoder_pb2.FileChunk(
+            data=chunk_data,
+            source_format=source_format if offset == 0 else "",
+            target_format=target_format if offset == 0 else "",
+            total_size=total_size if offset == 0 else 0,
+        )
+        print(f"  chunk {offset // CHUNK_SIZE + 1}: {len(chunk_data)} bytes")
+
+
+def send_file(filepath, source_format, target_format, host):
+    with open(filepath, 'rb') as f:
+        content = f.read()
+
+    print(f"enviando {filepath} ({len(content)} bytes) para {host}")
+
+    with grpc.insecure_channel(host) as channel:
+        stub = transcoder_pb2_grpc.TranscoderServiceStub(channel)
+        try:
+            response = stub.ConvertStream(chunk_generator(content, source_format, target_format))
+        except grpc.RpcError as e:
+            print(f"erro: [{e.code()}] {e.details()}")
+            sys.exit(1)
+
+    if response.error_message:
+        print(f"erro: {response.error_message}")
+        sys.exit(1)
+
+    print(f"\nintegridade: {'ok' if response.integrity_ok else 'falhou'}")
+    print(f"saída: {response.output_size} bytes\n")
+    print(response.content.decode('utf-8'))
+
 
 def main():
-    with grpc.insecure_channel("localhost:50051") as channel:
-        stub = transcoder_pb2_grpc.TranscoderServiceStub(channel)
-        content = b"# teste"
-        resp = stub.Convert(transcoder_pb2.ConvertRequest(
-            content=content,
-            source_format="markdown",
-            target_format="html",
-            expected_size=len(content),
-        ))
-        if resp.error_message:
-            print('error')
-        else:
-            print("Conteúdo:")
-            print(resp.content.decode('utf-8'))
+    parser = argparse.ArgumentParser(description="cliente gRPC para transcodificação de documentos")
+    parser.add_argument("file", help="arquivo a ser convertido")
+    parser.add_argument("--source", default="markdown", help="formato de origem (padrão: markdown)")
+    parser.add_argument("--target", default="html", help="formato de destino (padrão: html)")
+    parser.add_argument("--host", default="localhost:50051", help="endereço do servidor (padrão: localhost:50051)")
+    args = parser.parse_args()
 
-main()
+    send_file(args.file, args.source, args.target, args.host)
+
+
+if __name__ == "__main__":
+    main()

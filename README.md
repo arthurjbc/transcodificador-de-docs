@@ -1,47 +1,71 @@
 # Servidor de Transcodificação de Documentos
-**Equipe:** 5 
+**Equipe:** 5
 
 ## Descrição do Projeto
-Este projeto implementa um serviço centralizado com arquitetura Cliente-Servidor (RPC), capaz de receber um documento bruto em Markdown, verificar a integridade de sua transmissão e transcodificá-lo para HTML. 
+Este projeto implementa um serviço centralizado com arquitetura Cliente-Servidor (RPC), capaz de receber um documento Markdown em blocos via streaming gRPC, verificar a integridade da transmissão e transcodificá-lo para HTML.
 
 ## Decisão Tecnológica
-* **Comunicação RPC**: Adotamos o framework **gRPC** juntamente com o **Protocol Buffers** (`.proto`). O protocolo atende ao requisito de garantir as transações criando um contrato tipado rigoroso entre o cliente e o servidor, sendo ideal para trafegar o binário bruto do arquivo (`bytes`).
-* **Linguagem e Motor de Conversão**: A linguagem escolhida foi **Python**, integrada com `grpcio` e `grpcio-tools` por sua simplicidade para compilação de stubs de rede. O motor de conversão textual utiliza a biblioteca nativa `markdown` para mapear de forma prática a lógica entre os formatos, permitindo à equipe manter o foco na topologia distribuída.
+* **Comunicação RPC**: **gRPC** com **Protocol Buffers** (`.proto`). O protocolo define um contrato tipado entre cliente e servidor usando *client-side streaming*, permitindo enviar arquivos em chunks.
+* **Linguagem e Motor de Conversão**: **Python** com `grpcio` e `grpcio-tools`. O motor de conversão usa a biblioteca `markdown` para transformar Markdown em HTML.
+* **Concorrência**: O servidor usa `ThreadPoolExecutor` com 10 workers, isolando chamadas simultâneas em threads independentes.
 
 ## Controle de Integridade
-O protocolo garante que o arquivo é recebido em sua totalidade (100%) antes de começar a usar o processamento da CPU:
-1. O cliente encapsula a requisição via método `Convert`, preenchendo obrigatoriamente a propriedade `expected_size` com o tamanho local do byte array.
-2. O servidor (`server.py`) analisa a requisição e valida de forma restrita se o `len(request.content)` diverge de `request.expected_size`.
-3. Em caso de disparidade, o fluxo é imediatamente abortado, devolvendo uma resposta de erro (`integrity_ok=False`), não permitindo que a transformação ocorra em dados com perdas de pacotes.
+O protocolo garante que o arquivo é recebido em sua totalidade antes de iniciar a conversão:
+1. O cliente informa `total_size` no primeiro chunk enviado.
+2. O servidor acumula todos os chunks em memória e ao final compara `len(conteúdo_recebido) == total_size`.
+3. Se houver disparidade, retorna `integrity_ok=False` e não realiza a conversão.
 
-## Arquitetura e Estrutura de Pastas
+## Estrutura de Pastas
 ```
 transcodificador-de-docs/
-├── client/                
+├── client/
 │   └── client.py
 ├── protos/
 │   └── transcoder.proto
-├── server/                
+├── server/
 │   └── server.py
 ├── stubs/
+├── example.md
 ├── run.sh
 ├── requirements.txt
 └── .gitignore
 ```
-## Como rodar 
 
-``` bash
-    git clone https://github.com/arthurjbc/transcodificador-de-docs.git
-    cd transcodificador-de-docs
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    chmod +x run.sh
-    ./run.sh
-    python3 server/server.py
+## Como rodar
+
+### 1. Clonar e instalar dependências
+```bash
+git clone https://github.com/arthurjbc/transcodificador-de-docs.git
+cd transcodificador-de-docs
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Em outro terminal, rode:
-``` bash
-    python3 client/client.py
+### 2. Gerar os stubs gRPC a partir do .proto
+```bash
+chmod +x run.sh
+./run.sh
+```
+
+### 3. Iniciar o servidor
+```bash
+python3 server/server.py
+```
+
+### 4. Enviar um arquivo Markdown e verificar o HTML gerado
+
+Em outro terminal (com o venv ativado):
+```bash
+python3 client/client.py example.md
+```
+
+Para enviar para um servidor remoto:
+```bash
+python3 client/client.py example.md --host 192.168.1.10:50051
+```
+
+### Opções do cliente
+```
+python3 client/client.py --help
 ```
