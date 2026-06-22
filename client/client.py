@@ -36,11 +36,11 @@ def send_file(filepath, source_format, target_format, host):
         try:
             response = stub.ConvertStream(chunk_generator(content, source_format, target_format))
         except grpc.RpcError as e:
-            print(f"erro: [{e.code()}] {e.details()}")
+            print(f"erro2: [{e.code()}] {e.details()}")
             sys.exit(1)
 
     if response.error_message:
-        print(f"erro: {response.error_message}")
+        print(f"erro1: {response.error_message}")
         sys.exit(1)
 
     print(f"\nintegridade: {'ok' if response.integrity_ok else 'falhou'}")
@@ -50,10 +50,10 @@ def send_file(filepath, source_format, target_format, host):
 
 def main():
     parser = argparse.ArgumentParser(description="cliente gRPC para transcodificação de documentos")
-    parser.add_argument("file", help="arquivo a ser convertido")
-    parser.add_argument("--source", default="markdown", help="formato de origem (padrão: markdown)")
-    parser.add_argument("--target", default="html", help="formato de destino (padrão: html)")
-    parser.add_argument("--host", default="localhost:50051", help="endereço do servidor (padrão: localhost:50051)")
+    parser.add_argument("file")
+    parser.add_argument("--source", default="markdown")
+    parser.add_argument("--target", default="html")
+    parser.add_argument("--host", default="localhost:50051")
     args = parser.parse_args()
 
     send_file(args.file, args.source, args.target, args.host)
