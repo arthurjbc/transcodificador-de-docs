@@ -1,0 +1,11 @@
+import os
+
+HOST = "[::]"
+PORT = 50051
+ADDRESS = f"{HOST}:{PORT}"
+
+MAX_WORKERS = 10
+
+MAX_CONCURRENT_CONVERSIONS = os.cpu_count() or 4
+
+CHUNK_SIZE = 1024
