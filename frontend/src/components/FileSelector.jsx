@@ -44,7 +44,6 @@ function FileSelector({ file, onFileChange, onUpload, status }) {
 
       {file && (
         <div style={styles.fileBox}>
-          <span style={styles.fileIcon}>📄</span>
           <span style={styles.fileName}>{file.name}</span>
         </div>
       )}
@@ -98,10 +97,6 @@ const styles = {
     borderRadius: "6px",
     width: "80%",
     maxWidth: "400px",
-  },
-  fileIcon: {
-    marginRight: "10px",
-    fontSize: "1.2rem",
   },
   fileName: {
     fontSize: "0.9rem",

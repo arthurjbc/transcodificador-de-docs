@@ -36,30 +36,43 @@ function App() {
     setErrorMessage("");
   };
 
-  const handleRealUpload = async () => {
+  const handleRealUpload = () => {
     if (!file) return;
 
     setStatus("uploading");
-    setProgress(20);
+    setProgress(0);
 
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-      setProgress(50);
-      const response = await fetch("http://localhost:5000/api/transcode", {
-        method: "POST",
-        body: formData,
-      });
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "http://localhost:5000/api/transcode");
 
-      const data = await response.json();
-      setProgress(90);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setProgress(percent);
+      }
+    };
 
-      if (!response.ok) {
-        throw new Error(data.error_message || "Erro inesperado na conversão.");
+    xhr.onload = () => {
+      setProgress(100);
+
+      let data;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        setStatus("error");
+        setErrorMessage("Resposta inválida do servidor.");
+        return;
       }
 
-      setProgress(100);
+      if (xhr.status < 200 || xhr.status >= 300) {
+        setStatus("error");
+        setErrorMessage(data.error_message || "Erro inesperado na conversão.");
+        return;
+      }
+
       setStatus("success");
 
       const blob = new Blob([data.content], { type: "text/html" });
@@ -70,10 +83,15 @@ function App() {
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
-    } catch (error) {
+      URL.revokeObjectURL(url);
+    };
+
+    xhr.onerror = () => {
       setStatus("error");
-      setErrorMessage(error.message);
-    }
+      setErrorMessage("Falha de comunicação com o servidor. Verifique se o BFF está ativo.");
+    };
+
+    xhr.send(formData);
   };
 
   return (
@@ -104,9 +122,6 @@ function App() {
 
       <main style={styles.mainCard}>
         <h3 style={styles.cardTitle}>Transcodificador Markdown para HTML</h3>
-        <p style={styles.cardInstructions}>
-          Insira seu arquivo bruto abaixo para streaming gRPC concorrente.
-        </p>
 
         <FileSelector
           file={file}
@@ -119,10 +134,6 @@ function App() {
         {status === "success" && <SuccessMessage />}
         {status === "error" && <ErrorMessage message={errorMessage} />}
       </main>
-
-      <footer style={styles.footer}>
-        © 2026 Equipe 05 - Disciplina de Sistemas Distribuídos
-      </footer>
     </div>
   );
 }
@@ -182,18 +193,6 @@ const styles = {
     textAlign: "center",
   },
   cardTitle: { margin: "0 0 8px 0", color: "#212529", fontSize: "1.3rem" },
-  cardInstructions: {
-    margin: "0 0 30px 0",
-    color: "#6c757d",
-    fontSize: "0.9rem",
-  },
-  footer: {
-    textAlign: "center",
-    padding: "20px",
-    color: "#adb5bd",
-    fontSize: "0.8rem",
-    marginTop: "auto",
-  },
 };
 
 export default App;

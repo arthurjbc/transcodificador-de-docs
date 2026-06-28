@@ -1,7 +1,6 @@
 function SuccessMessage() {
   return (
     <div style={styles.box}>
-      <span style={styles.icon}>🎉</span>
       <div>
         <strong style={styles.title}>Transcodificação Concluída!</strong>
         <p style={styles.text}>
@@ -25,7 +24,6 @@ const styles = {
     fontSize: "0.9rem",
     textAlign: "left",
   },
-  icon: { fontSize: "1.5rem", marginRight: "12px" },
   title: { display: "block", fontWeight: "bold", marginBottom: "3px" },
   text: { margin: 0, color: "#137333" },
 };

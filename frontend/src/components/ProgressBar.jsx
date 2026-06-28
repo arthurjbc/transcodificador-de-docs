@@ -2,7 +2,7 @@ function ProgressBar({ progress }) {
   return (
     <div style={styles.container}>
       <div style={styles.labelRow}>
-        <span style={styles.labelText}>Progresso do Upload (gRPC Stream)</span>
+        <span style={styles.labelText}>Progresso do Upload</span>
         <span style={styles.percentage}>{progress}%</span>
       </div>
       <div style={styles.track}>
