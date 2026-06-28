@@ -2,18 +2,14 @@
 **Equipe:** 5
 
 ## Descrição do Projeto
-Este projeto implementa um serviço centralizado com arquitetura Cliente-Servidor (RPC), capaz de receber um documento Markdown em blocos via streaming gRPC, verificar a integridade da transmissão e transcodificá-lo para HTML. (Alteração na próxima entrega para oferecer mais transcodificações)
+Este projeto implementa um serviço centralizado com arquitetura Cliente-Servidor (RPC), capaz de receber um documento Markdown em blocos via streaming gRPC, verificar a integridade da transmissão e transcodificá-lo para HTML. A interação acontece por uma interface web em React, que se comunica com o servidor gRPC através de um BFF em Flask e acompanha as métricas do servidor em tempo real.
 
 ## Decisão Tecnológica
 * **Comunicação RPC**: Adotamos o framework **gRPC** juntamente com o **Protocol Buffers** (`.proto`). O protocolo atende ao requisito de garantir as transações criando um contrato tipado rigoroso entre o cliente e o servidor, sendo ideal para trafegar o binário bruto do arquivo (`bytes`).
 * **Linguagem e Motor de Conversão**: A linguagem escolhida foi **Python**, integrada com `grpcio` e `grpcio-tools` por sua simplicidade para compilação de stubs de rede. O motor de conversão textual utiliza a biblioteca nativa `markdown` para mapear de forma prática a lógica entre os formatos, permitindo à equipe manter o foco na topologia distribuída.
 * **Concorrência e uso de CPU**: O servidor atende as chamadas gRPC com um `ThreadPoolExecutor`, mas a etapa de conversão passa por um semáforo que limita quantas conversões rodam ao mesmo tempo, balanceando o uso de processador. Em paralelo, um **Lock** protege os contadores de métricas contra race conditons.
-
-## Controle de Integridade
-O protocolo garante que o arquivo é recebido em sua totalidade antes de iniciar a conversão:
-1. O cliente informa `total_size` no primeiro chunk enviado.
-2. O servidor acumula todos os chunks em memória e ao final compara `len(conteúdo_recebido) == total_size`.
-3. Se houver disparidade, retorna `integrity_ok=False` e não realiza a conversão.
+* **Interface e BFF**: A interface gráfica foi construída em **React**. Como o navegador não abre canais gRPC puros, um **BFF (Backend For Frontend) em Flask** recebe o arquivo via HTTP, repassa os chunks ao servidor gRPC e devolve o HTML, que é baixado automaticamente no disco do usuário. Erros de integridade, rejeições e indisponibilidade do servidor são exibidos na própria interface.
+* **Monitoramento em tempo real**: O servidor expõe o stream MonitorStats.
 
 ## Estrutura de Pastas
 ```
@@ -28,12 +24,23 @@ transcodificador-de-docs/
 │   ├── servicer.py 
 │   ├── concurrency.py
 │   ├── converter.py
-│   └── config.py
+│   └── configs.py
+├── web/
+│   ├── app.py
+│   ├── config.py
+│   ├── grpc_client.py
+│   └── routes.py
+├── frontend/
+│   ├── index.html
+│   ├── package.json
+│   └── src/
+│       ├── App.jsx
+│       └── components/
 ├── stubs/
 ├── example.md
 ├── run.sh
 ├── requirements.txt
-├── conorrencia.sh
+├── concorrencia.sh
 └── .gitignore
 ```
 
@@ -58,7 +65,24 @@ chmod +x run.sh
 python3 server/main.py
 ```
 
-### 4. Enviar um arquivo Markdown e verificar o HTML gerado
+### 4. Iniciar o servidor Flask
+
+Em outro terminal:
+```bash
+source venv/bin/activate
+python3 -m web.app
+```
+
+### 5. Iniciar a interface web
+
+Em outro terminal:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Enviar um arquivo Markdown e verificar o HTML gerado
 
 Em outro terminal:
 ```bash

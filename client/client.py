@@ -2,6 +2,7 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 import os
 import argparse
+import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'stubs'))
 
@@ -11,6 +12,27 @@ import transcoder_pb2_grpc
 
 CHUNK_SIZE = 1024
 
+MAX_MESSAGE_LENGTH = 100 * 1024 * 1024
+CHANNEL_OPTIONS = [
+    ("grpc.max_receive_message_length", MAX_MESSAGE_LENGTH),
+    ("grpc.max_send_message_length", MAX_MESSAGE_LENGTH),
+]
+
+
+def stream_monitor(stub):
+    print("Iniciando monitoramento em tempo real...")
+    try:
+        for stats in stub.MonitorStats(transcoder_pb2.MonitorRequest()):
+            print("\033[2J\033[H", end="")
+            print("--- PAINEL DE MONITORAMENTO ---")
+            print(f"Conexões Ativas: {stats.active}")
+            print(f"Pico de Concorrência: {stats.peak}")
+            print(f"Total de Sucessos: {stats.total}")
+            print(f"Total de Falhas: {stats.failed}")
+            print(f"Bytes Recebidos: {stats.bytes_in}")
+            print(f"Bytes Enviados: {stats.bytes_out}")
+    except grpc.RpcError as e:
+        print(f"\nStream de monitoramento fechado: {e.details()}")
 
 def chunk_generator(content, source_format, target_format):
     total_size = len(content)
@@ -40,7 +62,7 @@ def send_file(filepath, source_format, target_format, host, out_dir):
 
     print(f"enviando {filepath} ({len(content)} bytes) para {host}")
 
-    with grpc.insecure_channel(host) as channel:
+    with grpc.insecure_channel(host, options=CHANNEL_OPTIONS) as channel:
         stub = transcoder_pb2_grpc.TranscoderServiceStub(channel)
         try:
             response = stub.ConvertStream(chunk_generator(content, source_format, target_format))
@@ -61,13 +83,29 @@ def send_file(filepath, source_format, target_format, host, out_dir):
 
 def main():
     parser = argparse.ArgumentParser(description="cliente gRPC para transcodificação de documentos")
-    parser.add_argument("file")
+    parser.add_argument("file", nargs="?", help="arquivo a ser convertido")
     parser.add_argument("--source", default="markdown")
     parser.add_argument("--target", default="html")
     parser.add_argument("--host", default="localhost:50051")
     parser.add_argument("--out", default="output", help="pasta de destino do arquivo convertido")
+    parser.add_argument("--monitor", action="store_true", help="exibe o painel de monitoramento em tempo real")
     args = parser.parse_args()
 
-    send_file(args.file, args.source, args.target, args.host, args.out)
+    if args.monitor:
+        channel = grpc.insecure_channel(args.host, options=CHANNEL_OPTIONS)
+        stub = transcoder_pb2_grpc.TranscoderServiceStub(channel)
+        threading.Thread(target=stream_monitor, args=(stub,), daemon=True).start()
 
-main()
+    if args.file:
+        send_file(args.file, args.source, args.target, args.host, args.out)
+    elif not args.monitor:
+        parser.print_help()
+
+    if args.monitor:
+        try:
+            input("Pressione Enter para sair...\n")
+        except KeyboardInterrupt:
+            pass
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,5 @@
 import logging
 import time
-
 import grpc
 import transcoder_pb2
 import transcoder_pb2_grpc
@@ -14,6 +13,20 @@ logger = logging.getLogger(__name__)
 class TranscoderServicer(transcoder_pb2_grpc.TranscoderServiceServicer):
     def __init__(self, manager):
         self._manager = manager
+
+    def MonitorStats(self, request, context):
+        client = context.peer()
+        logger.info(f"[{client}] iniciou stream de monitoramento")
+        
+        try:
+            while context.is_active():
+                stats = self._manager.snapshot()
+                yield transcoder_pb2.StatsResponse(**stats)
+                time.sleep(1)
+        except Exception as exc:
+            logger.error(f"[{client}] erro no stream de monitoramento: {exc}")
+        finally:
+            logger.info(f"[{client}] encerrou stream de monitoramento")
 
     def ConvertStream(self, request_iterator, context):
         client = context.peer()
