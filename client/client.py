@@ -2,6 +2,7 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 import os
 import argparse
+import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'stubs'))
 
@@ -11,6 +12,23 @@ import transcoder_pb2_grpc
 
 CHUNK_SIZE = 1024
 
+
+def stream_monitor(stub):
+    print("Iniciando monitoramento em tempo real...")
+    try:
+        # Chama o novo endpoint do proto
+        for stats in stub.MonitorStats(transcoder_pb2.MonitorRequest()):
+            # Limpa a tela (código ANSI) para atualizar o dashboard no terminal
+            print("\033[2J\033[H", end="")
+            print("--- PAINEL DE MONITORAMENTO ---")
+            print(f"Conexões Ativas: {stats.active}")
+            print(f"Pico de Concorrência: {stats.peak}")
+            print(f"Total de Sucessos: {stats.total}")
+            print(f"Total de Falhas: {stats.failed}")
+            print(f"Bytes Recebidos: {stats.bytes_in}")
+            print(f"Bytes Enviados: {stats.bytes_out}")
+    except grpc.RpcError as e:
+        print(f"\nStream de monitoramento fechado: {e.details()}")
 
 def chunk_generator(content, source_format, target_format):
     total_size = len(content)
@@ -68,6 +86,23 @@ def main():
     parser.add_argument("--out", default="output", help="pasta de destino do arquivo convertido")
     args = parser.parse_args()
 
-    send_file(args.file, args.source, args.target, args.host, args.out)
+    channel = grpc.insecure_channel(args.host)
+    stub = transcoder_pb2_grpc.TranscoderServiceStub(channel)
 
-main()
+
+    if args.monitor:
+        threading.Thread(target=stream_monitor, args=(stub,), daemon=True).start()
+
+    if args.file:
+        send_file(stub, args.file, args.source, args.target, args.out)
+    elif not args.monitor:
+        parser.print_help()
+    
+    if args.monitor:
+        try:
+            input("Pressione Enter para sair...\n")
+        except KeyboardInterrupt:
+            pass
+
+if __name__ == "__main__":
+    main()

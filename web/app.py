@@ -1,17 +1,19 @@
-from flask import Flask, jsonify, render_template, request
+import logging
+from flask import Flask
+from flask_cors import CORS
+from web.config import FLASK_PORT
+from web.routes import api_bp
 
-app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-@app.route("/convert", methods=["POST"])
-def convert():
-    return jsonify()
+def create_app():
+    app = Flask(__name__)
+    CORS(app)
     
-@app.route("/stats", methods=["POST"])
-def stats():
-    return jsonify()
+    app.register_blueprint(api_bp, url_prefix="/api")
     
-app.run(host="127.0.0.1", port='5000', debug=True)
+    return app
+
+if __name__ == "__main__":
+    app = create_app()
+    app.run(host="0.0.0.0", port=FLASK_PORT, debug=True)

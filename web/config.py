@@ -1,0 +1,5 @@
+import os
+
+GRPC_SERVER_ADDRESS = os.environ.get("GRPC_SERVER_ADDRESS", "localhost:50051")
+CHUNK_SIZE = 1024
+FLASK_PORT = 5000
