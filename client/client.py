@@ -25,7 +25,16 @@ def chunk_generator(content, source_format, target_format):
         print(f"  chunk {offset // CHUNK_SIZE + 1}: {len(chunk_data)} bytes")
 
 
-def send_file(filepath, source_format, target_format, host):
+def save_output(content, filepath, target_format, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    base = os.path.splitext(os.path.basename(filepath))[0]
+    out_path = os.path.join(out_dir, f"{base}.{"html"}")
+    with open(out_path, "wb") as f:
+        f.write(content)
+    return out_path
+
+
+def send_file(filepath, source_format, target_format, host, out_dir):
     with open(filepath, 'rb') as f:
         content = f.read()
 
@@ -44,8 +53,10 @@ def send_file(filepath, source_format, target_format, host):
         sys.exit(1)
 
     print(f"\nintegridade: {'ok' if response.integrity_ok else 'falhou'}")
-    print(f"saída: {response.output_size} bytes\n")
-    print(response.content.decode('utf-8'))
+    print(f"saída: {response.output_size} bytes")
+
+    out_path = save_output(response.content, filepath, target_format, out_dir)
+    print(f"salvo em: {out_path}")
 
 
 def main():
@@ -54,10 +65,9 @@ def main():
     parser.add_argument("--source", default="markdown")
     parser.add_argument("--target", default="html")
     parser.add_argument("--host", default="localhost:50051")
+    parser.add_argument("--out", default="output", help="pasta de destino do arquivo convertido")
     args = parser.parse_args()
 
-    send_file(args.file, args.source, args.target, args.host)
+    send_file(args.file, args.source, args.target, args.host, args.out)
 
-
-if __name__ == "__main__":
-    main()
+main()

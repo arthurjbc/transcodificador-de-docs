@@ -4,7 +4,7 @@ from concurrent import futures
 import grpc
 import transcoder_pb2_grpc
 
-import server.configs as configs
+import configs as configs
 from concurrency import ConversionManager
 from servicer import TranscoderServicer
 

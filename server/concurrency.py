@@ -16,7 +16,6 @@ class ConversionManager:
 
     @contextmanager
     def slot(self):
-        """Reserva uma vaga de conversão; bloqueia se o limite foi atingido."""
         self._semaphore.acquire()
         with self._lock:
             self.active += 1
