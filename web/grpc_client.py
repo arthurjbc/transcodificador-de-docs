@@ -1,7 +1,12 @@
 import os
 import sys
 import grpc
-from web.config import GRPC_SERVER_ADDRESS, CHUNK_SIZE
+from web.config import GRPC_SERVER_ADDRESS, CHUNK_SIZE, MAX_MESSAGE_LENGTH
+
+_CHANNEL_OPTIONS = [
+    ("grpc.max_receive_message_length", MAX_MESSAGE_LENGTH),
+    ("grpc.max_send_message_length", MAX_MESSAGE_LENGTH),
+]
 
 _STUBS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "stubs")
 sys.path.insert(0, _STUBS)
@@ -10,7 +15,6 @@ import transcoder_pb2
 import transcoder_pb2_grpc
 
 def chunk_generator(content, source_format="markdown", target_format="html"):
-    """Gera pedaços do arquivo mantendo o contrato esperado pelo .proto"""
     total_size = len(content)
     for offset in range(0, total_size, CHUNK_SIZE):
         chunk_data = content[offset:offset + CHUNK_SIZE]
@@ -22,15 +26,13 @@ def chunk_generator(content, source_format="markdown", target_format="html"):
         )
 
 def call_convert_stream(file_content):
-    """Executa a chamada RPC ConvertStream de forma síncrona"""
-    with grpc.insecure_channel(GRPC_SERVER_ADDRESS) as channel:
+    with grpc.insecure_channel(GRPC_SERVER_ADDRESS, options=_CHANNEL_OPTIONS) as channel:
         stub = transcoder_pb2_grpc.TranscoderServiceStub(channel)
         response = stub.ConvertStream(chunk_generator(file_content))
         return response
 
 def call_monitor_stats():
-    """Consome o gerador contínuo de estatísticas (MonitorStats) do gRPC"""
-    with grpc.insecure_channel(GRPC_SERVER_ADDRESS) as channel:
+    with grpc.insecure_channel(GRPC_SERVER_ADDRESS, options=_CHANNEL_OPTIONS) as channel:
         stub = transcoder_pb2_grpc.TranscoderServiceStub(channel)
         for stats in stub.MonitorStats(transcoder_pb2.MonitorRequest()):
             yield stats

@@ -14,7 +14,13 @@ logger = logging.getLogger(__name__)
 def serve():
     manager = ConversionManager(configs.MAX_CONCURRENT_CONVERSIONS)
 
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=configs.MAX_WORKERS))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=configs.MAX_WORKERS),
+        options=[
+            ("grpc.max_receive_message_length", configs.MAX_MESSAGE_LENGTH),
+            ("grpc.max_send_message_length", configs.MAX_MESSAGE_LENGTH),
+        ],
+    )
     transcoder_pb2_grpc.add_TranscoderServiceServicer_to_server(
         TranscoderServicer(manager), server
     )

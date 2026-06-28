@@ -9,7 +9,6 @@ api_bp = Blueprint("api", __name__)
 
 @api_bp.route("/transcode", methods=["POST"])
 def transcode_file():
-    """Rota que o React chamará para transcodificar o Markdown"""
     if "file" not in request.files:
         return jsonify({"error_message": "Nenhum arquivo enviado na requisição."}), 400
 
@@ -45,7 +44,6 @@ def transcode_file():
 
 @api_bp.route("/stats", methods=["GET"])
 def stream_stats():
-    """Rota SSE (Server-Sent Events) que repassa o monitoramento gRPC em tempo real"""
     def event_stream():
         try:
             for stats in call_monitor_stats():
