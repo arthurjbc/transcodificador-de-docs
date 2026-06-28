@@ -7,7 +7,7 @@ Este projeto implementa um serviço centralizado com arquitetura Cliente-Servido
 ## Decisão Tecnológica
 * **Comunicação RPC**: Adotamos o framework **gRPC** juntamente com o **Protocol Buffers** (`.proto`). O protocolo atende ao requisito de garantir as transações criando um contrato tipado rigoroso entre o cliente e o servidor, sendo ideal para trafegar o binário bruto do arquivo (`bytes`).
 * **Linguagem e Motor de Conversão**: A linguagem escolhida foi **Python**, integrada com `grpcio` e `grpcio-tools` por sua simplicidade para compilação de stubs de rede. O motor de conversão textual utiliza a biblioteca nativa `markdown` para mapear de forma prática a lógica entre os formatos, permitindo à equipe manter o foco na topologia distribuída.
-* **Concorrência**: O servidor usa `ThreadPoolExecutor` com 10 workers, isolando chamadas simultâneas em threads independentes, fizemos um script de teste que roda 10 clients por segundo em paralelo, os resultados foram perfeitos.
+* **Concorrência e uso de CPU**: O servidor atende as chamadas gRPC com um `ThreadPoolExecutor`, mas a etapa de conversão passa por um semáforo que limita quantas conversões rodam ao mesmo tempo, balanceando o uso de processador. Em paralelo, um **Lock** protege os contadores de métricas contra race conditons.
 
 ## Controle de Integridade
 O protocolo garante que o arquivo é recebido em sua totalidade antes de iniciar a conversão:
@@ -23,7 +23,12 @@ transcodificador-de-docs/
 ├── protos/
 │   └── transcoder.proto
 ├── server/
-│   └── server.py
+│   ├── main.py 
+│   ├── server.py
+│   ├── servicer.py 
+│   ├── concurrency.py
+│   ├── converter.py
+│   └── config.py
 ├── stubs/
 ├── example.md
 ├── run.sh
@@ -32,7 +37,6 @@ transcodificador-de-docs/
 └── .gitignore
 ```
 
-## Como rodar
 
 ### 1. Clonar e instalar dependências
 ```bash
@@ -51,7 +55,7 @@ chmod +x run.sh
 
 ### 3. Iniciar o servidor
 ```bash
-python3 server/server.py
+python3 server/main.py
 ```
 
 ### 4. Enviar um arquivo Markdown e verificar o HTML gerado
@@ -62,10 +66,17 @@ source venv/bin/activate
 python3 client/client.py example.md
 ```
 
+Após a conversão, o cliente **salva automaticamente** o HTML devolvido pelo
+servidor em `output/<nome>.html` (a pasta é criada se não existir). Use `--out`
+para escolher outra pasta de destino:
+```bash
+python3 client/client.py example.md --out ./convertidos
+```
+
 Para enviar para um servidor remoto:
 ```bash
 source venv/bin/activate
-python3 client/client.py example.md --host 192.168.1.v10:50051
+python3 client/client.py example.md --host 192.168.1.10:50051
 ```
 
 ### Opções do cliente
