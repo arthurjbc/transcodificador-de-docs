@@ -4,6 +4,8 @@ package transcoder;
 
 service TranscoderService {
   rpc ConvertStream(stream FileChunk) returns (ConvertResponse);
+
+  rpc Stats(StatsRequest) returns (stream StatsSnapshot);
 }
 
 message FileChunk {
@@ -18,4 +20,17 @@ message ConvertResponse {
   uint64 output_size = 2;
   bool integrity_ok = 3;
   string error_message = 4;
+}
+
+message StatsRequest {
+  double interval_seconds = 1;
+}
+
+message StatsSnapshot {
+  uint64 active = 1;
+  uint64 peak = 2;
+  uint64 total = 3;
+  uint64 failed = 4;
+  uint64 bytes_in = 5;
+  uint64 bytes_out = 6;
 }

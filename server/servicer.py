@@ -1,9 +1,11 @@
 import logging
+import time
 
 import grpc
 import transcoder_pb2
 import transcoder_pb2_grpc
 
+import configs
 import converter
 
 logger = logging.getLogger(__name__)
@@ -83,6 +85,27 @@ class TranscoderServicer(transcoder_pb2_grpc.TranscoderServiceServicer):
             logger.exception(f"[{client}] erro inesperado")
             self._manager.record_failure()
             return self._error(str(exc))
+
+    def Stats(self, request, context):
+        interval = 1.0
+
+        client = context.peer()
+        logger.info(f"{client} - stream iniciado com {interval}s de intervalo")
+
+        try:
+            while context.is_active():
+                stats = self._manager.snapshot()
+                yield transcoder_pb2.StatsSnapshot(
+                    active=stats["active"],
+                    peak=stats["peak"],
+                    total=stats["total"],
+                    failed=stats["failed"],
+                    bytes_in=stats["bytes_in"],
+                    bytes_out=stats["bytes_out"],
+                )
+                time.sleep(interval)
+        finally:
+            logger.info(f"{client} - stream encerrado")
 
     @staticmethod
     def _error(message):
